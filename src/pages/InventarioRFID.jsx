@@ -6,11 +6,13 @@ import {
   RefreshCw,
   Save,
   Barcode,
-  Search,
   Check,
 } from 'lucide-react'
 
-// Sintetizador de áudio nativo para feedback imediato no galpão
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  'https://script.google.com/macros/s/AKfycbwFrFyYOSX7FL8F5CuTurJBVSHUvKKAlCOkxVQO32nAzfCNNJVI1GB0wwYDx9zTyRW8/exec'
+
 const playAudioFeedback = (type = 'match') => {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext
@@ -23,49 +25,42 @@ const playAudioFeedback = (type = 'match') => {
     gain.connect(ctx.destination)
 
     if (type === 'match') {
-      // Bip agudo de sucesso (880Hz - Lá 5)
       osc.frequency.setValueAtTime(880, ctx.currentTime)
       gain.gain.setValueAtTime(0.2, ctx.currentTime)
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
       osc.start()
       osc.stop(ctx.currentTime + 0.12)
     } else if (type === 'unknown') {
-      // Bip grave de alerta (tag não cadastrada - 280Hz)
       osc.frequency.setValueAtTime(280, ctx.currentTime)
       gain.gain.setValueAtTime(0.3, ctx.currentTime)
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25)
       osc.start()
       osc.stop(ctx.currentTime + 0.25)
     }
-  } catch (e) {
-    // Ignora restrições de autoplay de navegadores antigos
-  }
+  } catch (e) {}
 }
 
 export default function InventarioRFID() {
-  const [bancoEstoque, setBancoEstoque] = useState([]) // Itens baixados da planilha
-  const [lidosSet, setLidosSet] = useState(new Set()) // EPCs conferidos nesta sessão
-  const [desconhecidosSet, setDesconhecidosSet] = useState(new Set()) // Tags não cadastradas
+  const [bancoEstoque, setBancoEstoque] = useState([])
+  const [lidosSet, setLidosSet] = useState(new Set())
+  const [desconhecidosSet, setDesconhecidosSet] = useState(new Set())
   const [tagInput, setTagInput] = useState('')
   const [carregando, setCarregando] = useState(true)
   const [sincronizando, setSincronizando] = useState(false)
   const [feedback, setFeedback] = useState(null)
-  const [filtroTab, setFiltroTab] = useState('todos') // 'todos' | 'conferidos' | 'pendentes'
+  const [filtroTab, setFiltroTab] = useState('todos')
 
   const inputRef = useRef(null)
-  const apiUrl = import.meta.env.VITE_API_URL
 
   const focarInput = () => {
     if (inputRef.current) inputRef.current.focus()
   }
 
-  // Carrega snapshot da planilha ao abrir a página
   const carregarEstoque = async () => {
     setCarregando(true)
     setFeedback(null)
     try {
-      if (!apiUrl) throw new Error('VITE_API_URL não configurada.')
-      const res = await fetch(`${apiUrl}?action=get_catalogo_estoque`, {
+      const res = await fetch(`${API_URL}?action=get_catalogo_estoque`, {
         redirect: 'follow',
       })
       const data = await res.json()
@@ -86,7 +81,6 @@ export default function InventarioRFID() {
     carregarEstoque()
   }, [])
 
-  // Mapa rápido em memória O(1) de EPC -> Dados do Produto
   const mapaEstoque = useMemo(() => {
     const map = new Map()
     bancoEstoque.forEach((item) => {
@@ -95,7 +89,6 @@ export default function InventarioRFID() {
     return map
   }, [bancoEstoque])
 
-  // Processa o bip do leitor instantaneamente em memória
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -119,7 +112,6 @@ export default function InventarioRFID() {
     }
   }
 
-  // Sincroniza todas as leituras em lote com a planilha
   const handleSincronizar = async () => {
     if (lidosSet.size === 0) {
       setFeedback({ type: 'error', text: 'Nenhum item foi conferido ainda.' })
@@ -136,7 +128,7 @@ export default function InventarioRFID() {
         timestamp: new Date().toISOString(),
       }
 
-      const res = await fetch(apiUrl, {
+      const res = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload),
@@ -157,13 +149,11 @@ export default function InventarioRFID() {
     }
   }
 
-  // Estatísticas do Inventário
   const totalCadastrado = bancoEstoque.length
   const totalConferido = lidosSet.size
   const totalPendentes = Math.max(0, totalCadastrado - totalConferido)
   const percentual = totalCadastrado > 0 ? Math.round((totalConferido / totalCadastrado) * 100) : 0
 
-  // Lista filtrada
   const itensExibidos = useMemo(() => {
     return bancoEstoque.filter((item) => {
       const foiLido = lidosSet.has(item.epc)
@@ -175,7 +165,6 @@ export default function InventarioRFID() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
-      {/* Header e Ações */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -208,7 +197,6 @@ export default function InventarioRFID() {
         </div>
       </div>
 
-      {/* Input Oculto de Captura do Leitor */}
       <div className="bg-slate-900 text-slate-100 p-4 rounded-xl flex items-center gap-3 border border-slate-800 shadow-md">
         <Barcode className="w-6 h-6 text-emerald-400 shrink-0" />
         <div className="flex-1">
@@ -228,7 +216,6 @@ export default function InventarioRFID() {
         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
       </div>
 
-      {/* Alerta de Feedback */}
       {feedback && (
         <div
           className={`p-4 rounded-lg text-sm font-medium flex items-center gap-2 ${
@@ -246,7 +233,6 @@ export default function InventarioRFID() {
         </div>
       )}
 
-      {/* Cards de Métricas */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total em Banco</p>
@@ -272,7 +258,6 @@ export default function InventarioRFID() {
         </div>
       </div>
 
-      {/* Tabs de Filtro */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
         <button
           onClick={() => setFiltroTab('todos')}
@@ -302,7 +287,6 @@ export default function InventarioRFID() {
         </button>
       </div>
 
-      {/* Lista de Peças */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {carregando ? (
           <div className="p-8 text-center text-slate-500 text-sm">Carregando estoque da nuvem...</div>
