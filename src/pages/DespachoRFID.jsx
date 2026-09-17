@@ -10,6 +10,10 @@ import {
   PackageCheck,
 } from 'lucide-react'
 
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  'https://script.google.com/macros/s/AKfycbwFrFyYOSX7FL8F5CuTurJBVSHUvKKAlCOkxVQO32nAzfCNNJVI1GB0wwYDx9zTyRW8/exec'
+
 const playSound = (type = 'success') => {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext
@@ -39,7 +43,7 @@ const playSound = (type = 'success') => {
 
 export default function DespachoRFID() {
   const [bancoEstoque, setBancoEstoque] = useState([])
-  const [itensCarga, setItensCarga] = useState([]) // Itens escaneados para o caminhão
+  const [itensCarga, setItensCarga] = useState([])
   const [identificadorCarga, setIdentificadorCarga] = useState('')
   const [tagInput, setTagInput] = useState('')
   const [carregando, setCarregando] = useState(true)
@@ -47,7 +51,6 @@ export default function DespachoRFID() {
   const [feedback, setFeedback] = useState(null)
 
   const inputRef = useRef(null)
-  const apiUrl = import.meta.env.VITE_API_URL
 
   const focarInput = () => {
     if (inputRef.current) inputRef.current.focus()
@@ -56,8 +59,7 @@ export default function DespachoRFID() {
   const carregarEstoque = async () => {
     setCarregando(true)
     try {
-      if (!apiUrl) throw new Error('VITE_API_URL não configurada.')
-      const res = await fetch(`${apiUrl}?action=get_catalogo_estoque`, { redirect: 'follow' })
+      const res = await fetch(`${API_URL}?action=get_catalogo_estoque`, { redirect: 'follow' })
       const data = await res.json()
       if (data.status === 'success') {
         setBancoEstoque(data.itens || [])
@@ -88,7 +90,6 @@ export default function DespachoRFID() {
 
       if (!epc) return
 
-      // Verifica se a tag existe no estoque ativo
       const itemEstoque = mapaEstoque.get(epc)
 
       if (!itemEstoque) {
@@ -101,7 +102,6 @@ export default function DespachoRFID() {
         return
       }
 
-      // Verifica se já foi bipada nesta carga
       const jaBipado = itensCarga.some((it) => it.epc === epc)
       if (jaBipado) {
         playSound('error')
@@ -113,7 +113,6 @@ export default function DespachoRFID() {
         return
       }
 
-      // Adiciona à lista da carga
       setItensCarga((prev) => [
         {
           epc: itemEstoque.epc,
@@ -140,9 +139,15 @@ export default function DespachoRFID() {
       return
     }
 
-    const cargaNome = identificadorCarga.trim() || `CARGA-${new Date().toLocaleDateString('pt-BR').replace(/\//g, '')}`
+    const cargaNome =
+      identificadorCarga.trim() ||
+      `CARGA-${new Date().toLocaleDateString('pt-BR').replace(/\//g, '')}`
 
-    if (!window.confirm(`Confirma o despacho de ${itensCarga.length} itens para a carga "${cargaNome}"? As peças serão removidas do estoque ativo.`)) {
+    if (
+      !window.confirm(
+        `Confirma o despacho de ${itensCarga.length} itens para a carga "${cargaNome}"? As peças serão removidas do estoque ativo.`,
+      )
+    ) {
       return
     }
 
@@ -157,7 +162,7 @@ export default function DespachoRFID() {
         timestamp: new Date().toISOString(),
       }
 
-      const res = await fetch(apiUrl, {
+      const res = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload),
@@ -170,7 +175,6 @@ export default function DespachoRFID() {
         setFeedback({ type: 'success', text: data.message })
         setItensCarga([])
         setIdentificadorCarga('')
-        // Recarrega o banco de dados atualizado
         await carregarEstoque()
       } else {
         throw new Error(data.message || 'Falha no despacho.')
@@ -185,7 +189,6 @@ export default function DespachoRFID() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -207,7 +210,6 @@ export default function DespachoRFID() {
         </button>
       </div>
 
-      {/* Identificação da Carga */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">
@@ -239,7 +241,6 @@ export default function DespachoRFID() {
         </div>
       </div>
 
-      {/* Input de Leitura da Pistola */}
       <div className="bg-slate-900 text-slate-100 p-4 rounded-xl flex items-center gap-3 border border-slate-800 shadow-md">
         <Barcode className="w-6 h-6 text-indigo-400 shrink-0" />
         <div className="flex-1">
@@ -259,7 +260,6 @@ export default function DespachoRFID() {
         <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping"></span>
       </div>
 
-      {/* Alertas */}
       {feedback && (
         <div
           className={`p-4 rounded-lg text-sm font-medium flex items-center gap-2 ${
@@ -279,7 +279,6 @@ export default function DespachoRFID() {
         </div>
       )}
 
-      {/* Lista de Itens Carregados */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
           <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
