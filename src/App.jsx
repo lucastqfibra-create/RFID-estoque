@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route, NavLink } from 'react-router-dom'
 import { Home as HomeIcon, PlusCircle, Boxes } from 'lucide-react'
 import CadastroRFID from './pages/CadastroRFID'
+import InventarioRFID from './pages/InventarioRFID'
 
 function Layout({ children }) {
   const navClass = ({ isActive }) =>
@@ -38,18 +39,11 @@ function Layout({ children }) {
 
 function HomePage() {
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Painel Geral</h1>
-      <p className="text-slate-600">Selecione &quot;Cadastro de Tags&quot; para iniciar as associações.</p>
-    </div>
-  )
-}
-
-function InventarioPage() {
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Inventário</h1>
-      <p className="text-slate-600">Módulo de contagem em lote.</p>
+    <div className="max-w-xl mx-auto text-center space-y-4 py-8">
+      <h1 className="text-3xl font-extrabold text-slate-900">Controle de Estoque RFID UHF</h1>
+      <p className="text-slate-600 text-sm leading-relaxed">
+        Sistema industrial para rastreabilidade de peças de marmofibra. Utilize o menu superior para associar novas tags ou realizar inventário em lote com o leitor portátil.
+      </p>
     </div>
   )
 }
@@ -61,7 +55,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/cadastro" element={<CadastroRFID />} />
-          <Route path="/inventario" element={<InventarioPage />} />
+          <Route path="/inventario" element={<InventarioRFID />} />
         </Routes>
       </Layout>
     </HashRouter>
