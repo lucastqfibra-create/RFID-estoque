@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { CheckCircle2, AlertCircle, Loader2, Barcode, Package } from 'lucide-react'
 
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  'https://script.google.com/macros/s/AKfycbwFrFyYOSX7FL8F5CuTurJBVSHUvKKAlCOkxVQO32nAzfCNNJVI1GB0wwYDx9zTyRW8/exec'
+
 const PRODUTOS_CATALOGO = [
   { id: 'TM-120', nome: 'Tanque de Marmofibra 120cm - Branco' },
   { id: 'TM-100', nome: 'Tanque de Marmofibra 100cm - Cinza' },
@@ -15,7 +19,6 @@ export default function CadastroRFID() {
   const [feedback, setFeedback] = useState(null)
 
   const inputRef = useRef(null)
-  const apiUrl = import.meta.env.VITE_API_URL
 
   const focarInput = () => {
     if (inputRef.current) inputRef.current.focus()
@@ -34,7 +37,7 @@ export default function CadastroRFID() {
   const handleKeyDown = async (e) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      const epc = tagInput.trim()
+      const epc = tagInput.trim().toUpperCase()
       if (!epc) return
 
       if (!produtoSelecionado) {
@@ -57,10 +60,6 @@ export default function CadastroRFID() {
     setTagInput('')
 
     try {
-      if (!apiUrl) {
-        throw new Error('VITE_API_URL não definida nas configurações do repositório.')
-      }
-
       const payload = {
         action: 'vincular_etiqueta',
         epc,
@@ -69,7 +68,7 @@ export default function CadastroRFID() {
         timestamp: new Date().toISOString(),
       }
 
-      const response = await fetch(apiUrl, {
+      const response = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload),
