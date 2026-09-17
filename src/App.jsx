@@ -46,7 +46,7 @@ function HomePage() {
     <div className="max-w-2xl mx-auto text-center space-y-6 py-8">
       <h1 className="text-3xl font-extrabold text-slate-900">Controle de Estoque e Expedição RFID</h1>
       <p className="text-slate-600 text-sm leading-relaxed">
-        Sistema industrial completo para marmofibra: associação de tags, contagem de estoque e despacho de cargas com baixa automática na planilha.
+        Sistema industrial para rastreabilidade de tanques e pias de marmofibra: associação de etiquetas, conferência em lote com pistola RFID e despacho de cargas com baixa automática na planilha.
       </p>
     </div>
   )
