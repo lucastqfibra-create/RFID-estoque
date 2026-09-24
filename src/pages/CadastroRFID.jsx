@@ -14,13 +14,6 @@ const API_URL =
   import.meta.env.VITE_API_URL ||
   'https://script.google.com/macros/s/AKfycbwkbWuN9jyanZ05_icbMl3SnYoS4TKawnPtSz6lsYNoZnWXwJv6MMuZ4a1jdX1b5doC/exec'
 
-const PRODUTOS_CATALOGO = [
-  { id: 'TM-120', nome: 'Tanque de Marmofibra 120cm - Branco' },
-  { id: 'TM-100', nome: 'Tanque de Marmofibra 100cm - Cinza' },
-  { id: 'PIA-80', nome: 'Pia de Marmofibra 80cm - Granitado' },
-  { id: 'PIA-120', nome: 'Pia de Marmofibra 120cm com Cuba Dupla' },
-]
-
 const playSound = (type = 'success') => {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext
@@ -49,6 +42,7 @@ const playSound = (type = 'success') => {
 }
 
 export default function CadastroRFID() {
+  const [catalogoProdutos, setCatalogoProdutos] = useState([])
   const [produtoSelecionado, setProdutoSelecionado] = useState('')
   const [tagInput, setTagInput] = useState('')
   const [tagsCapturadas, setTagsCapturadas] = useState([])
@@ -61,11 +55,21 @@ export default function CadastroRFID() {
     if (inputRef.current) inputRef.current.focus()
   }
 
+  // Carrega catálogo dinâmico da planilha
   useEffect(() => {
     focarInput()
+    const carregar = async () => {
+      try {
+        const res = await fetch(`${API_URL}?action=get_produtos`, { redirect: 'follow' })
+        const data = await res.json()
+        if (data.status === 'success' && data.produtos) {
+          setCatalogoProdutos(data.produtos)
+        }
+      } catch (err) {}
+    }
+    carregar()
   }, [])
 
-  // Processa a tag e limpa o campo
   const processarTag = (epcBruto) => {
     const epc = (epcBruto || '').trim().toUpperCase()
     if (!epc) return
@@ -99,17 +103,14 @@ export default function CadastroRFID() {
     focarInput()
   }
 
-  // AUTO-BURST: Se a pistola disparar o texto sem Enter, processa após 150ms de pausa
+  // Auto-Burst para leitor sem Enter
   useEffect(() => {
     if (!tagInput.trim()) return
-
     const timer = setTimeout(() => {
-      // Tags EPC têm normalmente mais de 6 caracteres
       if (tagInput.trim().length >= 6) {
         processarTag(tagInput)
       }
     }, 150)
-
     return () => clearTimeout(timer)
   }, [tagInput, produtoSelecionado, tagsCapturadas])
 
@@ -141,7 +142,7 @@ export default function CadastroRFID() {
       return
     }
 
-    const produto = PRODUTOS_CATALOGO.find((p) => p.id === produtoSelecionado)
+    const produto = catalogoProdutos.find((p) => p.id === produtoSelecionado)
 
     setIsSubmitting(true)
     setFeedback(null)
@@ -217,7 +218,7 @@ export default function CadastroRFID() {
             className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
             <option value="">-- Escolha o modelo da peça --</option>
-            {PRODUTOS_CATALOGO.map((prod) => (
+            {catalogoProdutos.map((prod) => (
               <option key={prod.id} value={prod.id}>
                 {prod.nome} ({prod.id})
               </option>
@@ -226,7 +227,6 @@ export default function CadastroRFID() {
         </div>
       </div>
 
-      {/* Input com captura automática */}
       <div className="bg-slate-900 text-slate-100 p-4 rounded-xl flex items-center gap-3 border border-slate-800 shadow-md">
         <Barcode className="w-6 h-6 text-emerald-400 shrink-0" />
         <div className="flex-1">
@@ -239,7 +239,7 @@ export default function CadastroRFID() {
             onBlur={focarInput}
             placeholder={
               produtoSelecionado
-                ? 'Pronto! Aponte a pistola e aperte o gatilho...'
+                ? 'Pronto! Aponte a pistola e puxe o gatilho...'
                 : 'Selecione um produto acima primeiro'
             }
             disabled={!produtoSelecionado || isSubmitting}
@@ -307,7 +307,7 @@ export default function CadastroRFID() {
                     <p className="text-sm font-mono font-bold text-slate-800">{epc}</p>
                     <p className="text-xs text-slate-400">
                       Será associado a:{' '}
-                      {PRODUTOS_CATALOGO.find((p) => p.id === produtoSelecionado)?.nome}
+                      {catalogoProdutos.find((p) => p.id === produtoSelecionado)?.nome}
                     </p>
                   </div>
                 </div>
