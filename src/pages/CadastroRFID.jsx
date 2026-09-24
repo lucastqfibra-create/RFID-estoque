@@ -51,7 +51,7 @@ const playSound = (type = 'success') => {
 export default function CadastroRFID() {
   const [produtoSelecionado, setProdutoSelecionado] = useState('')
   const [tagInput, setTagInput] = useState('')
-  const [tagsCapturadas, setTagsCapturadas] = useState([]) // Array de strings (EPCs)
+  const [tagsCapturadas, setTagsCapturadas] = useState([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedback, setFeedback] = useState(null)
 
@@ -65,40 +65,58 @@ export default function CadastroRFID() {
     focarInput()
   }, [])
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      const epc = tagInput.trim().toUpperCase()
+  // Processa a tag e limpa o campo
+  const processarTag = (epcBruto) => {
+    const epc = (epcBruto || '').trim().toUpperCase()
+    if (!epc) return
+
+    if (!produtoSelecionado) {
+      playSound('error')
+      setFeedback({
+        type: 'error',
+        message: 'Selecione o modelo do produto antes de escanear as etiquetas.',
+      })
       setTagInput('')
-
-      if (!epc) return
-
-      if (!produtoSelecionado) {
-        playSound('error')
-        setFeedback({
-          type: 'error',
-          message: 'Selecione o modelo do produto antes de escanear as etiquetas.',
-        })
-        focarInput()
-        return
-      }
-
-      // Evita duplicata dentro da lista atual
-      if (tagsCapturadas.includes(epc)) {
-        playSound('error')
-        setFeedback({
-          type: 'warning',
-          message: `A tag ${epc} já está na lista atual de captura.`,
-        })
-        focarInput()
-        return
-      }
-
-      // Adiciona à lista de captura em memória instantaneamente
-      setTagsCapturadas((prev) => [epc, ...prev])
-      playSound('success')
-      setFeedback(null)
       focarInput()
+      return
+    }
+
+    if (tagsCapturadas.includes(epc)) {
+      playSound('error')
+      setFeedback({
+        type: 'warning',
+        message: `A tag ${epc} já está na lista atual de captura.`,
+      })
+      setTagInput('')
+      focarInput()
+      return
+    }
+
+    setTagsCapturadas((prev) => [epc, ...prev])
+    playSound('success')
+    setFeedback(null)
+    setTagInput('')
+    focarInput()
+  }
+
+  // AUTO-BURST: Se a pistola disparar o texto sem Enter, processa após 150ms de pausa
+  useEffect(() => {
+    if (!tagInput.trim()) return
+
+    const timer = setTimeout(() => {
+      // Tags EPC têm normalmente mais de 6 caracteres
+      if (tagInput.trim().length >= 6) {
+        processarTag(tagInput)
+      }
+    }, 150)
+
+    return () => clearTimeout(timer)
+  }, [tagInput, produtoSelecionado, tagsCapturadas])
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault()
+      processarTag(tagInput)
     }
   }
 
@@ -148,7 +166,7 @@ export default function CadastroRFID() {
 
       if (data.status === 'success') {
         setFeedback({ type: 'success', message: data.message })
-        setTagsCapturadas([]) // Limpa para a próxima remessa
+        setTagsCapturadas([])
       } else {
         throw new Error(data.message || 'Erro ao gravar lote.')
       }
@@ -162,7 +180,6 @@ export default function CadastroRFID() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-12">
-      {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
@@ -184,7 +201,6 @@ export default function CadastroRFID() {
         </button>
       </div>
 
-      {/* Seleção do Produto */}
       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
         <div>
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
@@ -210,7 +226,7 @@ export default function CadastroRFID() {
         </div>
       </div>
 
-      {/* Entrada Contínua do Leitor RFID */}
+      {/* Input com captura automática */}
       <div className="bg-slate-900 text-slate-100 p-4 rounded-xl flex items-center gap-3 border border-slate-800 shadow-md">
         <Barcode className="w-6 h-6 text-emerald-400 shrink-0" />
         <div className="flex-1">
@@ -223,7 +239,7 @@ export default function CadastroRFID() {
             onBlur={focarInput}
             placeholder={
               produtoSelecionado
-                ? 'Pronto! Aponte a pistola e puxe o gatilho...'
+                ? 'Pronto! Aponte a pistola e aperte o gatilho...'
                 : 'Selecione um produto acima primeiro'
             }
             disabled={!produtoSelecionado || isSubmitting}
@@ -236,7 +252,6 @@ export default function CadastroRFID() {
         )}
       </div>
 
-      {/* Feedback / Alertas */}
       {feedback && (
         <div
           className={`p-4 rounded-lg text-sm font-medium flex items-center gap-2.5 ${
@@ -256,7 +271,6 @@ export default function CadastroRFID() {
         </div>
       )}
 
-      {/* Lista de Tags Capturadas */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
           <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
