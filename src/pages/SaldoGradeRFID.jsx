@@ -1,22 +1,20 @@
 import { useState, useEffect, useMemo } from 'react'
-import { RefreshCw, Search, Table2, Layers, Download } from 'lucide-react'
+import { RefreshCw, Search, Table2 } from 'lucide-react'
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
   'https://script.google.com/macros/s/AKfycbwkbWuN9jyanZ05_icbMl3SnYoS4TKawnPtSz6lsYNoZnWXwJv6MMuZ4a1jdX1b5doC/exec'
 
-// Cores padrão da fábrica conforme a foto
+// Cores padrão da expedição
 const CORES_GRADE = ['BEGE', 'CINZA', 'BRANCO', 'PRETO']
 
-// Extrai o modelo (sem a cor) e identifica a cor da peça
+// Identifica o modelo e a cor da peça a partir do nome
 function extrairModeloECor(produtoNome) {
   if (!produtoNome) return { modelo: 'Outros', cor: 'OUTROS' }
-
   const nomeUpper = produtoNome.toUpperCase()
 
   for (const cor of CORES_GRADE) {
     if (nomeUpper.includes(cor)) {
-      // Remove a cor do nome para agrupar peças do mesmo modelo na mesma linha
       const modeloLimpo = produtoNome
         .replace(new RegExp(`\\s*-\\s*${cor}`, 'i'), '')
         .replace(new RegExp(`\\s+${cor}`, 'i'), '')
@@ -25,7 +23,6 @@ function extrairModeloECor(produtoNome) {
     }
   }
 
-  // Caso seja outra cor (ex: Granitado) ou não tenha cor especificada
   if (produtoNome.includes('-')) {
     const partes = produtoNome.split('-')
     const corPossivel = partes[partes.length - 1].trim().toUpperCase()
@@ -60,12 +57,17 @@ export default function SaldoGradeRFID() {
     carregarEstoque()
   }, [])
 
-  // Agrupamento Matricial: Modelo -> Cor -> Quantidade
+  // FILTRO ESTRITO: Considera APENAS as peças que foram bipadas e confirmadas no inventário
+  const itensBipadosNoInventario = useMemo(() => {
+    return bancoEstoque.filter((item) => item.conferido === true)
+  }, [bancoEstoque])
+
+  // Montagem da Matriz (Modelo x Cor) exclusivamente com os itens bipados
   const { matriz, listaModelos, totaisColunas, totalGeral, coresDinamicas } = useMemo(() => {
     const agrupamento = {}
     const coresSet = new Set(CORES_GRADE)
 
-    bancoEstoque.forEach((item) => {
+    itensBipadosNoInventario.forEach((item) => {
       const { modelo, cor } = extrairModeloECor(item.produtoNome)
       coresSet.add(cor)
 
@@ -75,7 +77,6 @@ export default function SaldoGradeRFID() {
       agrupamento[modelo][cor] = (agrupamento[modelo][cor] || 0) + 1
     })
 
-    // Lista ordenada de cores (as 4 principais primeiro, seguidas de outras se houver)
     const coresOrdenadas = [
       ...CORES_GRADE,
       ...Array.from(coresSet).filter((c) => !CORES_GRADE.includes(c)),
@@ -83,7 +84,6 @@ export default function SaldoGradeRFID() {
 
     const modelos = Object.keys(agrupamento).sort((a, b) => a.localeCompare(b))
 
-    // Calcula somatórios por coluna e geral
     const totaisCol = {}
     coresOrdenadas.forEach((c) => (totaisCol[c] = 0))
     let somaTotal = 0
@@ -103,9 +103,8 @@ export default function SaldoGradeRFID() {
       totalGeral: somaTotal,
       coresDinamicas: coresOrdenadas,
     }
-  }, [bancoEstoque])
+  }, [itensBipadosNoInventario])
 
-  // Filtra modelos pelo campo de busca
   const modelosFiltrados = useMemo(() => {
     if (!filtroTexto.trim()) return listaModelos
     const termo = filtroTexto.toUpperCase()
@@ -114,7 +113,7 @@ export default function SaldoGradeRFID() {
 
   return (
     <div className="space-y-5 max-w-5xl mx-auto pb-12">
-      {/* Barra de Controles e Filtros */}
+      {/* Controles Superiores */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -122,7 +121,7 @@ export default function SaldoGradeRFID() {
             Saldo Físico de Expedição
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Visão consolidada por modelo e cor em tempo real baseada nas tags RFID ativas.
+            Exibindo exclusivamente as peças bipadas e confirmadas no inventário físico.
           </p>
         </div>
 
@@ -149,7 +148,7 @@ export default function SaldoGradeRFID() {
         </div>
       </div>
 
-      {/* Grade com Layout Fiel à Foto */}
+      {/* Grade com o Formato Idêntico à Foto */}
       <div className="border-2 border-black rounded-lg overflow-hidden shadow-md bg-white">
         {/* Banner Superior Verde */}
         <div className="bg-[#00FF00] border-b-2 border-black py-2.5 text-center">
@@ -169,7 +168,7 @@ export default function SaldoGradeRFID() {
                 {coresDinamicas.map((cor) => (
                   <th
                     key={cor}
-                    className="py-2 px-3 text-center font-black border-r border-black tracking-wider text-xs sm:text-sm"
+                    className="py-2 px-3 text-center font-black border-r border-black tracking-wider text-xs sm:text-sm uppercase"
                   >
                     {cor}
                   </th>
@@ -187,21 +186,23 @@ export default function SaldoGradeRFID() {
                     colSpan={coresDinamicas.length + 2}
                     className="py-12 text-center text-slate-500 font-medium"
                   >
-                    Carregando saldo físico...
+                    Carregando saldo físico conferido...
                   </td>
                 </tr>
               ) : modelosFiltrados.length === 0 ? (
                 <tr>
                   <td
                     colSpan={coresDinamicas.length + 2}
-                    className="py-10 text-center text-slate-400 font-medium"
+                    className="py-12 text-center text-slate-400 font-medium"
                   >
-                    Nenhum produto em estoque corresponde ao filtro.
+                    Nenhum tanque bipado no inventário ainda. Realize a contagem na aba{' '}
+                    <span className="font-bold text-slate-600">Inventário</span> para alimentar a grade.
                   </td>
                 </tr>
               ) : (
                 modelosFiltrados.map((modelo, idx) => {
-                  let totalModelo = 0
+                  let totalLinha = 0
+
                   return (
                     <tr
                       key={modelo}
@@ -209,7 +210,7 @@ export default function SaldoGradeRFID() {
                         idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'
                       } hover:bg-amber-50/50`}
                     >
-                      {/* Nome do Modelo */}
+                      {/* Nome do Produto / Modelo */}
                       <td className="py-2 px-4 font-bold text-slate-900 border-r-2 border-black text-xs sm:text-sm">
                         {modelo}
                       </td>
@@ -217,7 +218,7 @@ export default function SaldoGradeRFID() {
                       {/* Quantidades por Cor */}
                       {coresDinamicas.map((cor) => {
                         const qtd = matriz[modelo]?.[cor] || 0
-                        totalModelo += qtd
+                        totalLinha += qtd
                         return (
                           <td
                             key={cor}
@@ -232,7 +233,7 @@ export default function SaldoGradeRFID() {
 
                       {/* Total da Linha */}
                       <td className="py-2 px-4 text-center font-black text-emerald-800 bg-emerald-50/40 text-sm">
-                        {totalModelo}
+                        {totalLinha}
                       </td>
                     </tr>
                   )
@@ -240,12 +241,12 @@ export default function SaldoGradeRFID() {
               )}
             </tbody>
 
-            {/* Rodapé com Totais Finais por Coluna */}
-            {!carregando && (
+            {/* Rodapé com Totais Gerais */}
+            {!carregando && itensBipadosNoInventario.length > 0 && (
               <tfoot>
                 <tr className="bg-[#D9E1F2] border-t-2 border-black font-black text-black">
                   <td className="py-3 px-4 text-left font-black border-r-2 border-black text-sm uppercase">
-                    TOTAL GERAL EM ESTOQUE
+                    TOTAL GERAL
                   </td>
                   {coresDinamicas.map((cor) => (
                     <td
